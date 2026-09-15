@@ -1,0 +1,48 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Magic Middle
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build app
+        env:
+          APP_VERSION: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          VERSION="${APP_VERSION#v}"
+          APP_VERSION="$VERSION" ./build.sh
+
+      - name: Verify app
+        run: |
+          test -d "build/Magic Middle.app"
+          test -f "build/Magic Middle.app/Contents/MacOS/MagicMiddle"
+          file "build/Magic Middle.app/Contents/MacOS/MagicMiddle"
+          lipo -info "build/Magic Middle.app/Contents/MacOS/MagicMiddle"
+
+      - name: Package app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            "build/Magic Middle.app" \
+            "build/Magic-Middle-${GITHUB_REF_NAME}.zip"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "build/Magic-Middle-${GITHUB_REF_NAME}.zip" \
+            --title "Magic Middle ${GITHUB_REF_NAME}" \
+            --generate-notes
