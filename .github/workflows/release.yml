@@ -2,8 +2,8 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -19,11 +19,9 @@ jobs:
 
       - name: Build app
         env:
-          APP_VERSION: ${{ github.ref_name }}
+          APP_VERSION: 1.0.${{ github.run_number }}
           BUILD_NUMBER: ${{ github.run_number }}
-        run: |
-          VERSION="${APP_VERSION#v}"
-          APP_VERSION="$VERSION" ./build.sh
+        run: ./build.sh
 
       - name: Verify app
         run: |
@@ -33,16 +31,21 @@ jobs:
           lipo -info "build/Magic Middle.app/Contents/MacOS/MagicMiddle"
 
       - name: Package app
+        env:
+          RELEASE_NAME: Magic-Middle-build-${{ github.run_number }}
         run: |
           ditto -c -k --sequesterRsrc --keepParent \
             "build/Magic Middle.app" \
-            "build/Magic-Middle-${GITHUB_REF_NAME}.zip"
+            "build/${RELEASE_NAME}.zip"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: build-${{ github.run_number }}
+          RELEASE_NAME: Magic-Middle-build-${{ github.run_number }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "build/Magic-Middle-${GITHUB_REF_NAME}.zip" \
-            --title "Magic Middle ${GITHUB_REF_NAME}" \
+          gh release create "$RELEASE_TAG" \
+            "build/${RELEASE_NAME}.zip" \
+            --title "Magic Middle Build #${{ github.run_number }}" \
+            --target "${{ github.sha }}" \
             --generate-notes
